@@ -1,0 +1,516 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
+    <sys_ui_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <description/>
+        <global>false</global>
+        <name>x_sofin_cti_connec.ixnmgrscript</name>
+        <script><![CDATA[
+        var Pureclient;
+        var interactionId, intervalAudioPlayer, purePath, substring, environment = undefined,
+            currentInteraction = undefined, unit, y, redirectUri, platformClient;
+        var pureCloudToken;
+       
+        var LoggerIxn = /** @class */ (function () {
+            function LoggerIxn() {
+            }
+            LoggerIxn.prototype.info = function () {
+                var args = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    args[_i] = arguments[_i];
+                }
+                var originalLog = console.info;
+                originalLog.apply(console.info, [this.getCurrentDate()].concat(args));
+            };
+            LoggerIxn.prototype.getCurrentDate = function () { return "[" + new Date().toISOString() + "] pureClientIXN *** "; };
+            return LoggerIxn;
+        }());
+        var loggerIxn = new LoggerIxn();
+
+        function customParseURL(skey, sdefault) {
+            if (!window.customUrlParams) {
+                window.customUrlParams = [];
+                var hash;
+                var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+                for (var i = 0; i < hashes.length; i++) {
+                    hash = hashes[i].split('=');
+                    window.customUrlParams.push(hash[0]);
+                    window.customUrlParams[hash[0]] = hash[1];
+                }
+            }
+            var retval = window.customUrlParams[skey];
+            return (retval ? retval : sdefault);
+        }
+
+        function init() {
+            pureCloudToken = localStorage.getItem("pureCloudToken");
+            if ( !pureCloudToken ){
+                printError("You are not authorized, login with your embeddable widget and retry.");
+                return;
+            }
+            interactionId = customParseURL('id', null);
+            environment = customParseURL('env', null);
+            purePath = customParseURL('purePath', null) ;
+            redirectUri = window.location.origin + window.location.pathname;
+
+            loggerIxn.info("params : interactionId : " + interactionId + " environment : " + environment + " redirectUri : " + redirectUri);
+            if (!interactionId) {
+                printError("The interaction id is mandatory");
+                return;
+            } 
+
+			
+            loadPure();
+            /*
+            if (!purePath) {
+                printError("The pure path is mandatory");
+                return;
+            } 
+            
+            var head = document.getElementsByTagName('head')[0];
+            var pureScript = document.createElement('script');
+            pureScript.type = 'text/javascript';
+            pureScript.src = purePath;
+            head.appendChild(pureScript);
+            pureScript.onload = function () { loadPure(); }
+            */
+        }
+
+        function loadPure() {
+            loggerIxn.info("LoadPure ok!")
+            Pureclient = new PureClientSdk();
+            platformClient = Pureclient.platformClient;
+            
+            Pureclient.client.setEnvironment(environment);
+            if ( !pureCloudToken ){
+                printError("Cannot authorize, login with your embeddable widget and retry");
+                return;
+            }
+            
+            Pureclient.client.setAccessToken(pureCloudToken);
+            checkTokenAndLoadPromises();
+        }
+
+        function checkTokenAndLoadPromises() {
+            Pureclient.usersApi.getUsersMe()
+                .then(function (userMe) {
+                    loggerIxn.info("userMe :", userMe);
+                    startPromises();
+                }).catch(function (err) {
+                    loggerIxn.info("error in userME", err);
+                    printError("Cannot authorize, login with your embeddable widget and retry");
+                });
+        }
+
+        function startPromises() {
+            getInteractionDetail();
+            getInteractionInfo();
+            getConversation();
+        }
+
+        function login() {
+            var id = clientIds[environment];
+
+            return Pureclient.client.loginImplicitGrant(id, redirectUri,
+                { state: ('pcEnvironment=' + environment) }).then(function (res) {
+                    loggerIxn.info("login succesful , ", res);
+                    localStorage.setItem("pureCloudToken", res.accessToken);
+                    startPromises();
+                    //      getInteractionDetail();
+                    //      getInteractionInfo();
+                    //      getConversation();
+                })
+        }
+        function getConversation() {
+            loggerIxn.info("getConversation");
+            var api = Pureclient.conversationApi;
+            var conversationId = interactionId;
+
+            api.getConversation(conversationId).then(function (result) {
+                loggerIxn.info("Result getConversation", result)
+                var numParticipantInternal = 0;
+                for (var index = 0; index < result.participants.length; index++) {
+                    var participant = result.participants[index];
+
+                    if (participant.participantType == "External") {
+                        document.getElementById("externalParticipanName").innerText = participant.name;
+
+                    } else if (participant.participantType == "Internal") {
+                        numParticipantInternal++;
+                        document.getElementById("internalParticipanName").innerText = participant.name;
+                    }
+
+                    if (participant.participantType == undefined && participant.purpose == "customer") {
+                        document.getElementById("externalParticipanName").innerText = participant.name;
+                    }
+
+                    if (participant.participantType == undefined && participant.purpose == "agent") {
+                        numParticipantInternal++;
+                        document.getElementById("internalParticipanName").innerText = participant.name;
+                    }
+
+                    loggerIxn.info("participant.wrapup", participant.wrapup)
+
+                    if (participant.wrapupRequired) {
+                        document.getElementById("wrapUpName").innerHTML = "" + participant.name
+                        if (participant.wrapup.name != undefined) {
+                            document.getElementById("wrapUpCode").innerHTML = "" + participant.wrapup.name
+                        } else {
+                            document.getElementById("wrapUpCode").innerHTML = " - ";
+                        }
+
+                        if (participant.wrapup.notes != undefined) {
+                            document.getElementById("wrapUpNotes").innerHTML = "" + participant.wrapup.notes
+                        } else {
+                            document.getElementById("wrapUpNotes").innerHTML = " - "
+                        }
+                    }
+                }
+
+                if (numParticipantInternal == 0) {
+                    document.getElementById("participantBody").innerHTML = '<div class="person-img"><span class="missing-participant"><i class="fas fa-times"></i></span></div><div class="participant-name"><span>No Participants</span></div>'
+                }
+                if (numParticipantInternal > 1) {//multipleCall
+                    document.getElementById("iconInternalParticipant").innerHTML = '<i class="profile icon"></i>';
+                    document.getElementById("footerInternalParticipant").style.display = "block";
+                    var html = "";
+                    for (var index = 0; index < result.participants.length; index++) {
+                        var participant = result.participants[index];
+                        if (participant.participantType == "Internal") {
+                            html += ' <div class="participant-item"><div class="person-img person-img-small">';
+                            html += ' <span class="person-icon"><i class="profile icon"></i></span></div><div class="participant-name"><span>' + participant.name + '</span></div>';
+                            html += ' <div><div><div class="participant-address"><span>' + participant.ani + '</span></div></div></div></div>'
+                        }
+                    }
+                    document.getElementById("dropMenu").innerHTML = html;
+                    document.getElementById("internalParticipanName").innerText = "Multiple";
+                }
+            }).catch(function (error) {
+                //manageError(error, interactionId);
+                loggerIxn.info("error in get conversation ", error);
+                
+            });
+
+        }
+
+        function dropMenu() {
+            loggerIxn.info("dropMenu", document.getElementById("dropMenu").style.display);
+
+            if (document.getElementById("dropMenu").style.display == "none") {
+                document.getElementById("dropMenu").style.display = "block"
+            } else {
+                document.getElementById("dropMenu").style.display = "none"
+            }
+
+        }
+
+        function getInteractionDetail() {
+            loggerIxn.info("getInteractionDetail");
+            var api = new platformClient.AnalyticsApi();
+            var conversationId = interactionId;
+            api.getAnalyticsConversationDetails(conversationId).then(function (result) {
+
+                var startTimeString = new Date(result.conversationStart).toLocaleDateString() + " " + (new Date(result.conversationStart).toLocaleTimeString())
+                var endTimeString = new Date(result.conversationEnd).toLocaleDateString() + " " + (new Date(result.conversationEnd).toLocaleTimeString())
+                var duration = new Date(result.conversationEnd).getTime() - new Date(result.conversationStart).getTime();
+                var durationTimeString = new Date(duration).getMinutes() + ":" + new Date(duration).getSeconds()
+                loggerIxn.info("successful call getInteractionDetail", result, duration);
+                document.getElementById("startTimeValue").innerHTML = startTimeString;
+                document.getElementById("endTimeValue").innerHTML = endTimeString;
+                document.getElementById("durationTimeValue").innerHTML = durationTimeString;
+
+            }).catch(function (error) {
+                // manageError(error,interactionId);
+                loggerIxn.info("error in get conversation ", error);
+            });
+        }
+
+        var bretry = false;
+        var attempt = 0;
+
+        function getInteractionInfo() {
+            loggerIxn.info("getInteractionInfo");
+            var api = new platformClient.RecordingApi();
+            var conversationId = interactionId;
+            var opts = {
+                'maxWaitMs': 10000,
+                'formatId': "MP3"
+            };
+            loggerIxn.info("successful call getInteractionInfo", conversationId);
+            api.getConversationRecordings(conversationId, opts).then(function (result) {
+                if ((!bretry) && ((!result) || (result.length < 1))) {
+                    loggerIxn.info("getInteractionInfo no result!");
+                    attempt++;
+                    if (attempt < 5) {
+                        loggerIxn.info("getInteractionInfo no result retry!");
+                        setTimeout(getInteractionInfo, 1000);
+                    }
+                    return;
+                }
+
+                for (var index = 0; index < result.length; index++) {
+                    currentInteraction = result[index];
+                    if (currentInteraction == undefined) {
+                        document.getElementById("Error").innerHTML = "<span style='color:red;font-size:4em;top:150px;position:relative;'>" + "Email transcript not found" + "</span>";
+                        document.getElementById("Error").style.display = "block";
+                        document.getElementById("loader").style.display = "none";
+                        return;
+                    } else {
+                        var mediaType = currentInteraction.media;
+                        document.getElementById("interactionType").innerText = " " + mediaType.toUpperCase();
+                        switch (mediaType) {
+                            case "chat":
+                                var chatTranscript = currentInteraction.transcript;
+                                var html = "";
+                                if (chatTranscript !== undefined) {
+                                    document.getElementById("titleTranscript").innerHTML = "Chat Log"
+                                    for (var i = 0; i < chatTranscript.length; i++) {
+                                        if (chatTranscript[i].body) {
+                                            html += "<div class='chat-message-row'>";
+                                            html += "<div class='chat-cell name'><div class='pull-right'>" + chatTranscript[i].from + "</div></div>";
+                                            html += "<div class='chat-cell message'>" + chatTranscript[i].body + "</div>"
+                                            var startTimeString = (new Date(chatTranscript[i].utc).toLocaleTimeString())
+                                            html += "<div class='chat-cell time'> <div class='pull-right'>" + startTimeString + "</div></div>";
+                                            loggerIxn.info("i:", chatTranscript[i])
+                                            html += "</div>";
+                                        }
+
+                                    }
+                                    document.getElementById("chatTranscriptContainer").innerHTML = html;
+                                    document.getElementById("chatTranscriptContainer").style.display = "block";
+                                    document.getElementById("playback-container").style.display = "block";
+                                    document.getElementById("loader").style.display = "none";
+                                } else {
+                                    var htmlError = "";
+                                    htmlError += '<div class="empty-interaction-indicator"><div class="empty-interaction-icon"><i class="fas fa-times"></i><div>'
+                                    htmlError += '<div><h3">Empty Chat Recording</h3><span>There are no messages in this chat.</span></div></div>'
+                                    document.getElementById("chatTranscriptContainer").innerHTML = htmlError;
+                                    document.getElementById("chatTranscriptContainer").style.display = "block";
+                                    document.getElementById("playback-container").style.display = "block";
+                                    document.getElementById("loader").style.display = "none";
+                                }
+                                break;
+                            case "audio":
+                                var uriAudio = currentInteraction.mediaUris[0].mediaUri;
+                                document.getElementById("titleTranscript").innerHTML = ""
+                                if (uriAudio !== undefined) {
+                                    document.getElementById("audioPlayer").innerHTML = "<source src='" + uriAudio + "' type='audio/webm'>";
+                                    //window.location.href = uriAudio;
+                                    document.getElementById("audioPlayer").style.display = "block";
+                                    document.getElementById("audioTranscriptContainer").style.display = "block";
+                                    document.getElementById("playback-container").style.display = "block";
+                                    document.getElementById("loader").style.display = "none";
+                                    var waveData = currentInteraction.mediaUris[0].waveformData;
+                                    var canvas = document.getElementsByTagName("canvas")[0];
+                                    var context = canvas.getContext('2d');
+                                    var audio = document.getElementById("audioPlayer")
+                                    context.beginPath();
+
+                                    for (var i = 1; i < waveData.length; i++) {
+                                        context.moveTo(i, 50 - (50 - (waveData[i] * 100)));
+                                        context.lineTo(i, 50 + (50 - (waveData[i] * 100)));
+                                    }
+                                    context.strokeStyle = "#b8b8b8";
+                                    context.stroke();
+
+                                    audio.onplay = function (event) {
+                                        //context.beginPath();
+                                        if (isNaN(unit) && isNaN(y)) {
+                                            unit = 639 / audio.duration
+                                            y = 639 / audio.duration;
+                                        }
+                                        loggerIxn.info("Unit 1", unit, y)
+                                        intervalAudioPlayer = setInterval(function () {
+                                            document.getElementById("progressAudio").style.width = y + "px"
+                                            y = y + unit;
+                                            loggerIxn.info("Unit", unit, y)
+                                        }, 1000);
+                                        //context.strokeStyle = "#5AAAC4"
+                                        //context.stroke();
+                                    }
+
+                                    audio.onpause = function () {
+                                        loggerIxn.info("audio.onpause", audio.duration, audio.currentTime, y)
+                                        clearInterval(intervalAudioPlayer)
+                                    }
+
+                                    // audio.onseeking = function(){
+                                    //     loggerIxn.info("audio.onseeking")
+                                    // }
+
+                                    audio.onseeked = function () {
+                                        loggerIxn.info("audio.onseeked", audio.currentTime)
+                                        unit = 639 / audio.duration
+                                        y = unit * audio.currentTime;
+                                        document.getElementById("progressAudio").style.width = y + "px"
+                                    }
+                                } else {
+                                    document.getElementById("Error").innerHTML = "<span style='color:red;font-size:4em;top:150px;position:relative;'>" + "Audio transcript not found" + "</span>";
+                                    document.getElementById("Error").style.display = "block";
+                                    document.getElementById("loader").style.display = "none";
+                                }
+
+                                break;
+                            case "email":
+                                var emailTranscript = currentInteraction.emailTranscript[0];
+                                document.getElementById("titleTranscript").innerHTML = ""
+                                if (emailTranscript !== undefined) {
+                                    var centerContainer = document.getElementById("emailTranscriptContainer");
+                                    var lastChild = centerContainer.lastElementChild;
+                                    var containerTemp = document.createElement("div");
+                                    var attachments = "";
+                                    if (emailTranscript.attachments) {
+                                        emailTranscript.attachments.forEach(function (a)  {
+                                            attachments += '<a class="email-attachment" style="margin-right:10px" data-bind="text: name,attr: {href: contentPath ,download: name}" href=' + a.contentPath + ' download=' + a.name + ' >' + a.name + '</a>';
+                                        })
+                                    }
+                                    var htmlTemp = '<div class="email-interactions-view"><div class="email-messages"><div class="email-message"><div class="email-header-parent">' +
+                                        '<span class="email-header-label">From</span><div class="email-header">' + (emailTranscript.from.email) + '</div>' +
+                                        '<div class="email-time">' + new Date(emailTranscript.time).toLocaleDateString() + " " + (new Date(emailTranscript.time).toLocaleTimeString()) + '</div></div>' +
+                                        '<div class="email-body slide-panel" style="display: block;"><div class="email-to"><span class="email-to-label">To</span><div><div>' + (emailTranscript.to[0].email) + '</div></div></div>' +
+                                        '<div class="email-subject"><span class="email-subject-label">Subject</span><div>' + (emailTranscript.subject) + '</div></div>' +
+                                        '<div class="email-attachments"><div class="email-attachment-label">Attachments</div>' + attachments + '</div>';
+                                    if (emailTranscript.htmlBody != undefined) {
+                                        htmlTemp += "<p id='BodyEmail'>" + (emailTranscript.htmlBody) + "</p>";
+                                    } else {
+                                        htmlTemp += "<p id='BodyEmail'>" + (emailTranscript.textBody) + "</p>";
+                                    }
+
+                                    htmlTemp += '</div></div></div></div></div>';
+                                    containerTemp.innerHTML = htmlTemp;
+                                    centerContainer.insertBefore(containerTemp, lastChild);
+
+
+                                } else {
+                                    document.getElementById("Error").innerHTML = "<span style='color:red;font-size:4em;top:150px;position:relative;'>" + "Email transcript not found" + "</span>";
+                                    document.getElementById("Error").style.display = "block"; document.getElementById("loader").style.display = "none";
+                                    return;
+                                }
+                                break;
+                            case "message":
+                                loggerIxn.info("Message type")
+                                document.getElementById("titleTranscript").innerHTML = ""
+                                var messagingTranscript = currentInteraction.messagingTranscript;
+                                var messaginPane = document.getElementById("messaginPane");
+                                var lastChild = messaginPane.lastElementChild;
+                                if (messagingTranscript !== undefined) {
+                                    messagingTranscript.forEach(function (element) {
+                                        loggerIxn.info("Element", element)
+
+                                        if (element.fromUser !== undefined) {
+                                            var containerTemp = document.createElement("div");
+                                            var htmlTemp = '<div class="messages-message agent">';
+                                            htmlTemp += '<div class="person-img person-img-small"><span class="person-icon"><i class="profile icon small" style="line-height: 1.5;"></i></span></div>';
+                                            htmlTemp += '<div class="message-body">';
+                                            htmlTemp += '<div class="message-bubble"><div class="tail"></div><span class="message-text-body">' + element.messageText + '</span></div>';
+                                            htmlTemp += '<div class="message-footer"><div class="message-time">' +
+                                                new Date(element.timestamp).toDateString() + ' ' + new Date(element.timestamp).getMinutes() + ":" + new Date(element.timestamp).getSeconds() + '</div>';
+                                            htmlTemp += '<div class="message-time">' + element.fromUser.name + '</div></div></div>';
+                                            containerTemp.innerHTML = htmlTemp;
+                                            messaginPane.insertBefore(containerTemp, lastChild);
+                                            lastChild = containerTemp;
+                                        } else if (element.fromExternalContact !== undefined) {
+
+                                            document.getElementById("externalParticipanName").innerText = element.fromExternalContact.lastName + ", " + element.fromExternalContact.firstName;
+                                            var containerTempExternal = document.createElement("div");
+
+                                            var htmlTemp = '<div class="messages-message customer">';
+                                            htmlTemp += '<div class="person-img person-img-small"><span class="person-icon"><i class="profile icon small" style="line-height: 1.5;"></i></span></div>';
+                                            htmlTemp += '<div class="message-body">';
+                                            htmlTemp += '<div class="message-bubble"><div class="tail"></div><span class="message-text-body">' + element.messageText + '</span></div>';
+                                            htmlTemp += '<div class="message-footer"><div class="message-time">' +
+                                                new Date(element.timestamp).toDateString() + ' ' + new Date(element.timestamp).getMinutes() + ":" + new Date(element.timestamp).getSeconds() + '</div></div>';
+                                            htmlTemp += '</div></div>';
+                                            containerTempExternal.innerHTML = htmlTemp;
+                                            messaginPane.insertBefore(containerTempExternal, lastChild);
+                                            lastChild = containerTempExternal;
+                                        } else if (element.from !== undefined) {
+                                            document.getElementById("externalParticipanName").innerText = element.from;
+                                            var containerTempExternal = document.createElement("div");
+
+                                            var htmlTemp = '<div class="messages-message customer">';
+                                            htmlTemp += '<div class="person-img person-img-small"><span class="person-icon"><i class="profile icon small" style="line-height: 1.5;"></i></span></div>';
+                                            htmlTemp += '<div class="message-body">';
+                                            htmlTemp += '<div class="message-bubble"><div class="tail"></div><span class="message-text-body">' + element.messageText + '</span></div>';
+                                            htmlTemp += '<div class="message-footer"><div class="message-time">' +
+                                                new Date(element.timestamp).toDateString() + ' ' + new Date(element.timestamp).getMinutes() + ":" + new Date(element.timestamp).getSeconds() + '</div></div>';
+                                            htmlTemp += '</div></div>';
+                                            containerTempExternal.innerHTML = htmlTemp;
+                                            messaginPane.insertBefore(containerTempExternal, lastChild);
+                                            lastChild = containerTempExternal;
+                                        }
+                                    });
+                                    document.getElementById("messagingTranscriptContainer").style.display = "block";
+                                    document.getElementById("playback-container").style.display = "block";
+                                    document.getElementById("loader").style.display = "none";
+                                }
+                                else {
+                                    document.getElementById("Error").innerHTML = "<span style='color:red;font-size:4em;top:150px;position:relative;'>" + "Chat transcript not found" + "</span>";
+                                    document.getElementById("Error").style.display = "block"; document.getElementById("loader").style.display = "none";
+                                    return;
+                                }
+
+                                break;
+
+                        }
+                    }
+                }
+
+                if (currentInteraction != undefined && currentInteraction.media == "email") {
+                    document.getElementById("emailTranscriptContainer").style.display = "block";
+                    document.getElementById("playback-container").style.display = "block";
+                    document.getElementById("loader").style.display = "none";
+                }
+            }).catch(function (error) {
+
+                manageError(error, interactionId);
+
+            });
+        }
+
+        function manageError(error, interactionId) {
+            var msg;
+
+            switch (error.status) {
+                case 401:
+                    printError("Authorization error");
+                    break;
+                case 403:
+                    printError("You are not authorized for this interaction : " + interactionId);
+                    break;
+                case 404:
+                    printError("Interaction not found : " + interactionId);
+                    break;
+                default:
+                    printError("Error retrieving detail for this interaction : " + interactionId);
+                    break;
+            }
+        }
+        function printError(error) {
+            var htmlError = "";
+            htmlError += '<div id="errorContainer" class="empty-interaction-indicator"><div id="iconError" class="empty-interaction-icon"><i "iconTimes" class="fas fa-times"></i><div>'
+            htmlError += '<div><h5 style="color:#000">' + error + '</h5></div>'
+            document.getElementById("playback-container").innerHTML = htmlError;
+            document.getElementById("errorContainer").style.width = "100%";
+            document.getElementById("iconError").style.width = "100%";
+            document.getElementById("errorContainer").style.textAlign = "center";
+            document.getElementById("playback-container").style.display = "block";
+            document.getElementById("loader").style.display = "none";
+        }
+]]></script>
+        <script_name>ixnmgrscript</script_name>
+        <sys_class_name>sys_ui_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2019-01-28 20:50:27</sys_created_on>
+        <sys_id>eddacfd1db13e780483e78fdaa9619da</sys_id>
+        <sys_mod_count>16</sys_mod_count>
+        <sys_name>x_sofin_cti_connec.ixnmgrscript</sys_name>
+        <sys_package display_value="CTI-Connector-ServiceNow" source="x_sofin_cti_connec">a33a94f7dbe42b00f7a71fe96896199c</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CTI-Connector-ServiceNow">a33a94f7dbe42b00f7a71fe96896199c</sys_scope>
+        <sys_update_name>sys_ui_script_eddacfd1db13e780483e78fdaa9619da</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2019-11-20 17:06:52</sys_updated_on>
+        <ui_type>0</ui_type>
+        <use_scoped_format>false</use_scoped_format>
+    </sys_ui_script>
+</record_update>

@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
+    <sys_ui_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <description/>
+        <global>false</global>
+        <name>x_sofin_cti_connec.iwsprescriptPEF</name>
+        <script><![CDATA[///========================================
+/// SoftPhone s.r.l
+/// IWSConnector
+/// Date: 21/11/2019
+///========================================
+function onPreRequestConfigurationPureEmbeddable(message) {
+    var _params = iwscore.getLayoutParams();
+    if (_params.integrationType === "pure-embeddable") {
+        iwscore.sendPureEmbeddableConfiguration();
+    }
+}
+
+function onPreChannelStatus(message) {
+    iwscore.setIwsInitData(message);
+}
+function onPreConnectedSession(message) {
+    if (message.IwsApplicationName) {
+        iwscore.setIwsApplicationName(message.IwsApplicationName);
+    }
+    iwscore.setIwsInitData(message);
+    iwscore.showConnectedState();
+}
+function onPreDisconnectedSession(message) {
+	jQuery("#softphoneLedStatus").css('color', 'red'); 
+    iwscore.showDisconnectedState();
+}
+function onPostDisconnectedSession(message) {
+}
+function onPreActivatePureEmbeddableSession(message) {
+	var _params = iwscore.getLayoutParams();
+    if (_params.integrationType === "pure-embeddable" && message.token) {
+        iwscore.initPureCloud(message.token);
+    }
+}
+function onPreActivateSession(message) {
+	jQuery("#softphoneLedStatus").css('color', 'green'); 
+	
+    var _params = iwscore.getLayoutParams();
+    if (_params.integrationType === "pure-embeddable" && message.token) {
+        iwscore.initPureCloud(message.token);
+    }
+    iwscore.showActivedState();
+    //load combo interactions
+    if (message.interactions) {
+        var i;
+        log.debugFormat("[onPreActivateSession] received [{0}] interaction", message.interactions.length);
+        //addEmptyOption() removeEmptyOption()
+        //if((!isMultyInteractions()) && (isEnablePlaceHolder()))
+        //	addEmptyOption();
+        if (iwscore.isEnablePlaceHolder())
+            iwscore.addEmptyOption();
+        for (i = 0; i < message.interactions.length; i++) {
+            if ((message.interactions[i].State == 8)
+                ||
+                    (message.interactions[i].State == 1)
+                ||
+                    (message.interactions[i].State == 2))
+                continue;
+            log.debug("[onPreActivateSession] Check if the interaction is a Campaign");
+            if (iwscore.isCampaign(message.interactions[i])) {
+                log.debug("[onPreActivateSession] The interaction is a Campaign");
+                if (iwscore.isEnablePlaceHolder())
+                    iwscore.addJSONObjectInMemoryCampaign(message.interactions[i], iwscore.isEnablePlaceHolderInteraction(message.interactions[i]));
+                else
+                    iwscore.addJSONObjectInMemoryCampaign(message.interactions[i], false);
+            }
+            else {
+                log.debug("[onPreActivateSession] The interaction not is a Campaign");
+                //if(isMultyInteractions())
+                //	addJSONObjectInMemory(message.interactions[i]);
+                //related the attach-data
+                if (iwscore.isEnablePlaceHolder())
+                    iwscore.addJSONObjectInMemory(message.interactions[i], iwscore.isEnablePlaceHolderInteraction(message.interactions[i]));
+                else
+                    iwscore.addJSONObjectInMemory(message.interactions[i], false);
+            }
+            //message.interactions[i].State == 5 means released
+        }
+        //if((!isMultyInteractions()) && (isEnablePlaceHolder()))
+        if (iwscore.isEnablePlaceHolder())
+            iwscore.removeEmptyOption();
+        if (iwscore.countInteractions() > 0) {
+            iwscore.removeDefaultOption();
+        }
+    }
+}
+function onPreDeactivateSession(message) {
+    iwscore.showConnectedState();
+}
+/*
+function onSynchInteractions(message)
+{
+    for(var key in mapInteractions)
+    {
+        log.debugFormat("[onSynchInteractions] Check [{0}] in IWS", key);
+        if(!message.interactions[key])
+        {
+            log.warnFormat("[onSynchInteractions] Remove [{0}]", key);
+            removeJSONObjectInMemory(key);
+        }
+        else
+        {
+            log.debugFormat("[onSynchInteractions] Valid [{0}]", key);
+        }
+    }
+}
+*/
+/**
+ * get the id from DelegateCommand
+ * @param message
+ * @returns {String}
+ */
+function getIdFromDelegateCommand(message) {
+    var id = "";
+    try {
+        var sapp = message.Parameters.CommandParameter;
+        var n = sapp.indexOf("/");
+        id = sapp.substring(n + 1).slice(0, -1);
+    }
+    catch (e) {
+        log.warn("getIdFromDelegateCommand: " + e.message);
+    }
+    log.debugFormat("[getIdFromDelegateCommand] id[{0}]", id);
+    return id;
+}
+function onPreDelegateCommand(message) {
+    try {
+        var id = iwscore.getMessageId(message);
+        if (id) {
+            log.debugFormat("[onPreDelegateCommand] with ConnectionID [{0}]", id);
+        }
+        else {
+            id = getIdFromDelegateCommand(message);
+            if (id) {
+                log.debugFormat("[onPreDelegateCommand] with ConnectionID [{0}]", id);
+                message.ConnectionID = id;
+                message.InteractionID = id;
+            }
+        }
+    }
+    catch (e) {
+        log.warn("[onPreDelegateCommand]: " + e.message);
+    }
+}
+function onPreEventAgentReady(message) {
+}
+function onPreEventEstablishedInternal(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventEstablishedConsult(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventReleasedInbound(message) {
+    //removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPostEventReleasedConsult(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEventReleasedInternal(message) {
+    //removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEventPartyChangedInbound(message) {
+    //release the consult...
+    //PreviousConnID
+    //add the new Inbound
+    iwscore.removeJSONObjectInMemory(message.PreviousConnID);
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventPartyChangedInternal(message) {
+    iwscore.removeJSONObjectInMemory(message.PreviousConnID);
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventPartyChangedOutbound(message) {
+    iwscore.removeJSONObjectInMemory(message.PreviousConnID);
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventEstablishedOutbound(message) {
+    if (iwscore.isCampaign(message)) {
+        iwscore.addJSONObjectInMemoryCampaign(message, undefined);
+        if (iwscore.isEnablePlaceHolder() && iwscore.isSelectedInteraction(message)) {
+            iwscommand.SetInteractionOnWde(message.ConnectionID);
+        }
+    }
+    else
+        iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEventReleasedOutbound(message) {
+}
+function onPreEventMarkDoneInbound(message) {
+}
+function onPostEventMarkDoneInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEventMarkDoneInternal(message) {
+}
+function onPostEventMarkDoneInternal(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEventMarkDoneConsult(message) {
+}
+function onPostEventMarkDoneConsult(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEventMarkDoneOutbound(message) {
+}
+function onPostEventMarkDoneOutbound(message) {
+    if (!iwscore.isCampaign(message)) {
+        iwscore.removeJSONObjectInMemory(message.ConnectionID);
+    }
+    else {
+        var recordhandle = "" + iwscore.getRecordHandle(message);
+        iwscore.removeJSONObjectInMemory(recordhandle);
+    }
+}
+//==============================================
+// Chat Section 
+//==============================================
+function onPreChatEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreChatEventReleasedInbound(message) {
+}
+function onPostChatEventMarkDoneInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+//==============================================
+//Workitem Section 
+//==============================================
+function onPreWorkitemEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreWorkitemEventOpenedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreWorkitemEventReleasedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+//Added in release 1.5.0.0
+function onPostWorkitemEventRevokedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+//==============================================
+//Email Section 
+//==============================================
+function onPreEmailEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPostEmailEventReleasedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEmailEventEstablishedOutbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPostEmailEventReleasedOutbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEmailEventOpenedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEmailEventReplyEstablishedOutbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEmailEventReplyEstablished(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEmailEventReplyReleasedOutbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEmailEventReplyReleased(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEmailEventReplyCancelled(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreEmailEventReplyOpened(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreEmailEventReplyOpenedOutbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+//==============================================
+// Workbin Section 
+//==============================================
+function onPreWorkbinPlacedIn(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreWorkbinTakenOut(message) {
+}
+//==============================================
+//SMS Section 
+//==============================================
+function onPreSMSEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreSMSEventReleasedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreSMSEventEstablishedOutbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPreSMSEventReleasedOutbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+//==================================================================
+//Events UserEvent
+//==================================================================
+function onPreEventUserEvent(message) {
+    try {
+        var eventname = message.attachdata.GSW_USER_EVENT;
+        log.debugFormat("onPreEventUserEvent: the event is {0}", eventname);
+        iwscore.callSafetyFunction("onPre" + eventname + "(message);", message);
+        if (iwscore.checkFunction("on" + eventname)) {
+            iwscore.callSafetyFunction("on" + eventname + "(message);", message);
+            //return false;
+        }
+    }
+    catch (e) {
+        log.error("onPreEventUserEvent: " + e.message);
+    }
+    return true;
+}
+function onPostEventUserEvent(message) {
+    try {
+        var eventname = message.attachdata.GSW_USER_EVENT;
+        log.debugFormat("onPostEventUserEvent: the event is {0}", eventname);
+        iwscore.callSafetyFunction("onPost" + eventname + "(message);", message);
+    }
+    catch (e) {
+        log.error("onPostEventUserEvent: " + e.message);
+    }
+    return true;
+}
+function onPrePreviewRecord(message) {
+    log.debug("======= onPrePreviewRecord ==========");
+    iwscore.addJSONObjectInMemoryCampaign(message, undefined); //false);
+}
+function onPreRecordProcessedAcknowledge(message) {
+    log.debug("======= onPreRecordProcessedAcknowledge ==========");
+    //var recordhandle = "" + getRecordHandle(message);
+    //removeJSONObjectInMemory(recordhandle);	
+}
+function onPostRecordProcessedAcknowledge(message) {
+    log.debug("======= onPostRecordProcessedAcknowledge ==========");
+    var recordhandle = "" + iwscore.getRecordHandle(message);
+    iwscore.removeJSONObjectInMemory(recordhandle);
+}
+function onPreRecordRejectAcknowledge(message) {
+    log.debug("======= onPreRecordRejectAcknowledge ==========");
+    var recordhandle = "" + iwscore.getRecordHandle(message);
+    iwscore.removeJSONObjectInMemory(recordhandle);
+}
+function onPreRecordCancelAcknowledge(message) {
+    log.debug("======= onPreRecordCancelAcknowledge ==========");
+    var recordhandle = "" + iwscore.getRecordHandle(message);
+    iwscore.removeJSONObjectInMemory(recordhandle);
+}
+function onPreScheduledCall(message) {
+    log.debug("======= onPreScheduledCall ==========");
+    iwscore.addJSONObjectInMemoryCampaign(message, undefined); //false);
+}
+function onPreChainedRecordsDataEnd(message) {
+    log.debug("======= onPreChainedRecordsDataEnd ==========");
+    iwscore.addJSONObjectInMemoryCampaign(message, undefined); //false);
+}
+//==================================================================
+// PushPreview
+//==================================================================
+function onPreOutboundpreviewEventEstablished(message) {
+    log.debug("======= onPreOutboundpreviewEventEstablished ==========");
+    iwscore.addJSONObjectInMemoryCampaign(message, undefined); //false);
+}
+function onPreOutboundpreviewEventEstablishedInternal(message) {
+    log.debug("======= onPreOutboundpreviewEventEstablishedInternal ==========");
+    iwscore.addJSONObjectInMemoryCampaign(message, undefined); //false);
+}
+function onPostOutboundpreviewEventReleasedInternal(message) {
+    onPostOutboundpreviewEventReleased(message);
+}
+function onPostOutboundpreviewEventReleased(message) {
+    log.debug("======= onPostOutboundpreviewEventReleased ==========");
+    var recordhandle = "" + iwscore.getRecordHandle(message);
+    iwscore.removeJSONObjectInMemory(recordhandle);
+}
+//==================================================================
+//Events Twitter
+//==================================================================
+function onPreTwitterEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPostTwitterEventReleasedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+function onPreTwitterEventReplyOutbound(message) {
+    /*
+    onTwitterEventReplyOutbound
+    onTwitterEventRetweetOutbound
+    onTwitterEventRetweetWithCommentsOutbound
+    onTwitterEventDirectMessageOutbound
+    */
+    try {
+        var msgType = message.attachdata._twitterMsgType;
+        log.debug("onPreTwitterEventReplyOutbound with " + msgType);
+        if ((msgType === "Retweet") || (msgType === "DirectMessage")) {
+            log.debug("onPreTwitterEventReplyOutbound with " + msgType);
+            var myevent = "TwitterEvent{0}Outbound".format(msgType);
+            log.debugFormat("onPreTwitterEventReply: the new event is on{0}", myevent);
+            iwscore.callSafetyFunction("onPre" + myevent + "(message);", message);
+            if (iwscore.checkFunction("on" + myevent)) {
+                iwscore.callSafetyFunction("on" + myevent + "(message);", message);
+            }
+            return false;
+        }
+    }
+    catch (e) {
+        log.error("onPreTwitterEventReply: " + e.message);
+    }
+    return true;
+}
+//==================================================================
+//Events Facebook
+//==================================================================
+function onPreFacebookEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPostFacebookEventReleasedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+//==================================================================
+//Generic Events
+//==================================================================
+function onPreWdeSwitchInteraction(message) {
+    var mymessage = iwscore.getInteraction(message.InteractionID);
+    if (mymessage) {
+        var curr_message = iwscore.getSelectedInteraction();
+        if (curr_message) {
+            log.infoFormat("[onPreWdeSwitchInteraction] Selected Interaction [{0}] Switch Interaction[{1}] ======================", curr_message.InteractionID, mymessage.InteractionID);
+            if (curr_message.InteractionID != mymessage.InteractionID) {
+                iwscore.selectInteractionOptionByMessage(mymessage);
+            }
+        }
+    }
+}
+function onPreWebformEventEstablishedInbound(message) {
+    iwscore.addJSONObjectInMemory(message, undefined);
+}
+function onPostWebformEventReleasedInbound(message) {
+    iwscore.removeJSONObjectInMemory(message.ConnectionID);
+}
+//alert("iwsprescript well formed!");
+]]></script>
+        <script_name>iwsprescriptPEF</script_name>
+        <sys_class_name>sys_ui_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2019-11-21 09:46:32</sys_created_on>
+        <sys_id>154ed2f8db594090f7a71fe96896191b</sys_id>
+        <sys_mod_count>1</sys_mod_count>
+        <sys_name>x_sofin_cti_connec.iwsprescriptPEF</sys_name>
+        <sys_package display_value="CTI-Connector-ServiceNow" source="x_sofin_cti_connec">a33a94f7dbe42b00f7a71fe96896199c</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CTI-Connector-ServiceNow">a33a94f7dbe42b00f7a71fe96896199c</sys_scope>
+        <sys_update_name>sys_ui_script_154ed2f8db594090f7a71fe96896191b</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2019-11-26 15:58:58</sys_updated_on>
+        <ui_type>0</ui_type>
+        <use_scoped_format>false</use_scoped_format>
+    </sys_ui_script>
+</record_update>

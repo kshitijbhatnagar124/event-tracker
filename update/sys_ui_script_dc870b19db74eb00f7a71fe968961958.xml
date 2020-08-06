@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
+    <sys_ui_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <description/>
+        <global>false</global>
+        <name>x_sofin_cti_connec.iwsconfig-pure</name>
+        <script><![CDATA[/**
+ * Possible log levels:
+ * 	enumloglevel.debug
+ * 	enumloglevel.info
+ * 	enumloglevel.warn
+ * 	enumloglevel.error
+ * 	enumloglevel.none 
+ */
+log.setLogLevel(enumloglevel.debug);
+
+/* if the sip disaster-recovery is enabled, please uncomment the row below */
+//setSipDisasterRecovery(true);
+
+/*
+ * if equals false, means that you want manage an interaction at time (not valid for SAP) 
+ * in other words, the switch event not happen if is already present an interaction in the combo 
+ */
+//setMultyInteractions(false);
+//setMultyInteractionsEvents(true);
+
+/*
+ * Set a place-holder in WDE, to know the selected Interaction in the CRM side
+ * (useful in CRM crash/refresh scenario)
+ */
+iwscore.setPlaceHolder(true);
+
+/*
+ * Remove the "session exit command", when the document-unload is catch.  
+ * The "session exit command" break the Connector communication. 
+ */
+iwscommand.removeExitOnDocumentUnload();
+
+/*
+* Set the Compact menu, instead of the dropdown multi-interaction
+*/
+//enableCompactMenu();
+
+/*
+ * If your web application, use the $ sign as a shortcut, the replace the row below:
+ * - $(document).ready(function() {
+ * with the following rows:
+ * - var $connector = $.noConflict();
+ * - $connector(document).ready(function() {
+ */
+	
+function addFilters()
+{
+	iwscore.addFilter("onEventRingingInbound", "action");
+	iwscore.addFilter("onEventRingingConsult", "action");
+	iwscore.addFilter("onEventEstablishedInbound", "action");
+	iwscore.addFilter("onEventEstablishedConsult", "action");
+	iwscore.addFilter("onEventEstablishedOutbound", "action");
+	iwscore.addFilter("onEventDialingOutbound", "action");
+	iwscore.addFilter("onEventPartyChangedInbound", "action");
+	
+}
+
+function action(message)
+{
+	log.debug("Called action function...");
+	//if the attach is defined
+	if(message.attachdata.CRM)
+	{
+		log.debugFormat("action - message.attachdata.CRM [{0}] ", message.attachdata.CRM);
+		return (message.attachdata.CRM == "servicenow");
+	}
+	else	
+		return true;
+}
+
+//log.setLogLevel(enumloglevel.debug);
+//iwscommand.removeExitOnDocumentUnload();
+var softphoneConnectorDefaultConfig = {
+    url: "https://apps.mypurecloud.com/crm/softphoneServiceNow/index.html?request_configuration=true&crm_domain=" + window.location.origin,
+    auth: {
+        environment: "mypurecloud.com"
+    },
+    params: {
+        settings: {
+            hideWebRTCPopUpOption: false,
+            enableCallLogs: true,
+            hideCallLogSubject: false,
+            hideCallLogContact: false,
+            hideCallLogRelation: false,
+            dedicatedLoginWindow: false,
+            embeddedInteractionWindow: false,
+            enableConfigurableCallerId: false,
+            enableServerSideLogging: false,
+            enableCallHistory: false,
+            embedWebRTCByDefault: true,
+            enableTransferContext: false
+        },
+        clientIds : {
+            "mypurecloud.com": "d1726105-a50c-4531-a5f2-a39f5b0b570c"
+        },
+        helpLinks : {}
+    }
+};
+
+/*
+jQuery(document).ready(function () {
+    console.log("document ready!");
+    iwscore.initCTI(pureconfig);
+    iwscore.enableCTI();
+});
+*/
+function initSNConnectorConfiguration(snConfig)
+{
+    //default behaviour
+    var pureconfig = {
+        context: window,
+        layoutType: "frame",
+        integrationType: "pure-embeddable",
+        url: softphoneConnectorDefaultConfig.url,
+        auth: softphoneConnectorDefaultConfig.auth,
+        pefParams: softphoneConnectorDefaultConfig.params
+    };
+    
+    iwscore.snConfig = snConfig;
+    //sn_entity_type = "sn_customerservice_case";
+    //var sn_entity_type = "incident";
+    iwscore.snConfig.defaultEntity = snConfig.defaultEntity || "incident";
+    if(snConfig.hasOwnProperty('screenpopnew')){
+        iwscore.snConfig.screenpopnew = snConfig.screenpopnew;
+    }
+    else
+        iwscore.snConfig.screenpopnew = true;
+
+    if(snConfig.pefUrl)
+    {
+        pureconfig.url = snConfig.pefUrl + "&crm_domain=" + window.location.origin;
+    }
+    if(snConfig.pefAuth)
+    {
+        pureconfig.auth = snConfig.pefAuth;
+    }
+    if(snConfig.pefParams)
+    {
+        pureconfig.pefParams = snConfig.pefParams;
+    }
+    if(snConfig.org)
+    {
+        pureconfig.url = "https://apps." + snConfig.org + "/crm/softphoneServiceNow/index.html?request_configuration=true&crm_domain=" + window.location.origin;
+        pureconfig.auth.environment = snConfig.org;
+    }
+    if(snConfig.clientIds)
+    {
+        pureconfig.pefParams.clientIds = snConfig.clientIds;
+    }
+
+    iwscore.initCTI(pureconfig);
+    iwscore.enableCTI();
+}]]></script>
+        <script_name>iwsconfig-pure</script_name>
+        <sys_class_name>sys_ui_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2018-09-26 13:08:26</sys_created_on>
+        <sys_id>dc870b19db74eb00f7a71fe968961958</sys_id>
+        <sys_mod_count>29</sys_mod_count>
+        <sys_name>x_sofin_cti_connec.iwsconfig-pure</sys_name>
+        <sys_package display_value="CTI-Connector-ServiceNow" source="x_sofin_cti_connec">a33a94f7dbe42b00f7a71fe96896199c</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CTI-Connector-ServiceNow">a33a94f7dbe42b00f7a71fe96896199c</sys_scope>
+        <sys_update_name>sys_ui_script_dc870b19db74eb00f7a71fe968961958</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2020-02-24 11:30:41</sys_updated_on>
+        <ui_type>0</ui_type>
+        <use_scoped_format>false</use_scoped_format>
+    </sys_ui_script>
+</record_update>

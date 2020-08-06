@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_page">
+    <sys_ui_page action="INSERT_OR_UPDATE">
+        <category>general</category>
+        <client_script><![CDATA[console.log("IXNWebApp OK");]]></client_script>
+        <description/>
+        <direct>false</direct>
+        <endpoint>x_sofin_cti_connec_IXNWebApp.do</endpoint>
+        <html><![CDATA[<?xml version="1.0" encoding="utf-8" ?>
+<j:jelly trim="false" xmlns:j="jelly:core" xmlns:g="glide" xmlns:j2="null" xmlns:g2="null">
+	<g:evaluate >
+		 var applicationUrl = gs.getProperty('x_sofin_cti_connec.applicationUrl');
+		 var sysparm_id = RP.getParameterValue("sysparm_id");
+		 var sysparm_type = RP.getParameterValue("sysparm_type");
+		 var gr = new GlideRecord(sysparm_type); 
+		 gr.addQuery('sys_id', sysparm_id);
+		 gr.query(); 
+	</g:evaluate>
+	
+	<j:if test="${gr.next()}">					
+		<j:set var="jvar_inc" value="${gr.contact_type}" />				
+		<iframe src="${applicationUrl}id=${gr.x_sofin_cti_connec_interaction_id}" style='border:0px; width:100%;height:600px'></iframe>		
+	</j:if>
+	
+</j:jelly>]]></html>
+        <name>IXNWebApp</name>
+        <processing_script/>
+        <sys_class_name>sys_ui_page</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2018-09-24 09:14:21</sys_created_on>
+        <sys_id>1ade73e8dbb0ab00f7a71fe9689619d1</sys_id>
+        <sys_mod_count>88</sys_mod_count>
+        <sys_name>IXNWebApp</sys_name>
+        <sys_package display_value="CTI-Connector-ServiceNow" source="x_sofin_cti_connec">a33a94f7dbe42b00f7a71fe96896199c</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CTI-Connector-ServiceNow">a33a94f7dbe42b00f7a71fe96896199c</sys_scope>
+        <sys_update_name>sys_ui_page_1ade73e8dbb0ab00f7a71fe9689619d1</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2019-03-19 15:42:56</sys_updated_on>
+    </sys_ui_page>
+</record_update>

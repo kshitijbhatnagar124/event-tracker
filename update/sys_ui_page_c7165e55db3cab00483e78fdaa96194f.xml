@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_page">
+    <sys_ui_page action="INSERT_OR_UPDATE">
+        <category>general</category>
+        <client_script><![CDATA[var config = {
+	height: 700,
+	width: 300
+};
+function handleCommunicationEvent(context) {
+	log.infoFormat("Communication from Topframe: {0}", context);
+	try {
+		executePayLoadConnector(context);
+	} catch (error) {
+		log.error(error);	
+	}
+}
+function initSuccess(snConfig) {
+	log.infoFormat("openframe configuration: {0}",snConfig);
+	if(snConfig)
+	{
+		//call init	
+		log.infoFormat("openframe configuration: {0}", snConfig.configuration);
+		if(snConfig.configuration)
+		{
+			try {
+				var configConnector = JSON.parse(snConfig.configuration);
+				log.infoFormat("openframe configConnector: {0}", configConnector);
+				initSNConnectorConfiguration(configConnector);
+			} catch (error) {
+				//default init
+				log.error("Error in init OpenFrame", error);
+			}
+		}
+		else
+		{
+			initSNConnectorConfiguration({});
+		}
+	}
+	//register for communication event from TopFrame
+	openFrameAPI.subscribe(openFrameAPI.EVENTS.COMMUNICATION_EVENT,
+	handleCommunicationEvent);
+}
+function initFailure(error) {
+	log.error("OpenFrame init failed..");
+	log.error(error);
+}
+
+openFrameAPI.init(config, initSuccess, initFailure);]]></client_script>
+        <description>Load Pure Embeddable</description>
+        <direct>false</direct>
+        <endpoint>x_sofin_cti_connec_PURE-Connector-Page.do</endpoint>
+        <html><![CDATA[<?xml version="1.0" encoding="utf-8" ?>
+<j:jelly trim="false" xmlns:j="jelly:core" xmlns:g="glide" xmlns:j2="null" xmlns:g2="null">
+	<script src="x_sofin_cti_connec.pureClientSdkBundleFu.jsdbx"></script>
+	<script src="x_sofin_cti_connec.softphone-connector-c.jsdbx"></script>
+	<script src="scripts/openframe/latest/openFrameAPI.min.js"></script>
+	<script src="x_sofin_cti_connec.iwsprescriptPEF.jsdbx"></script>	
+	<script src="x_sofin_cti_connec.iwsscriptPEF.jsdbx"></script>
+	<script src="x_sofin_cti_connec.iwsutilPEF.jsdbx"></script>	
+	<script src="x_sofin_cti_connec.iwsconfig-pure.jsdbx"></script>
+	<iframe allow="microphone; camera" style="border:0px;margin:0px;" id="pureFrame" width="100%" height="100%"></iframe>
+</j:jelly>]]></html>
+        <name>PURE-Connector-Page</name>
+        <processing_script/>
+        <sys_class_name>sys_ui_page</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2018-09-26 09:32:21</sys_created_on>
+        <sys_id>c7165e55db3cab00483e78fdaa96194f</sys_id>
+        <sys_mod_count>33</sys_mod_count>
+        <sys_name>PURE-Connector-Page</sys_name>
+        <sys_package display_value="CTI-Connector-ServiceNow" source="x_sofin_cti_connec">a33a94f7dbe42b00f7a71fe96896199c</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CTI-Connector-ServiceNow">a33a94f7dbe42b00f7a71fe96896199c</sys_scope>
+        <sys_update_name>sys_ui_page_c7165e55db3cab00483e78fdaa96194f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2020-02-24 06:44:00</sys_updated_on>
+    </sys_ui_page>
+</record_update>

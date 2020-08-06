@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
+    <sys_ui_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <description/>
+        <global>false</global>
+        <name>x_sofin_cti_connec.iwsscriptPEF</name>
+        <script><![CDATA[///========================================
+/// SoftPhone s.r.l
+/// file to handling the PureCloud events
+/// Date: 20/02/2020
+///========================================
+
+function networkError(message)
+{
+	log.error(message);
+}
+
+function onIdentity(message)
+{
+}
+
+function onConnectedSession(message)
+{
+}
+
+function onDisconnectedSession(message)
+{
+}
+
+function onActivateSession(message)
+{
+	if(existOptionInteractions())
+		switchInteraction();
+}
+
+function onPostActivateSession(message)
+{
+}
+
+function onDeactivateSession(message)
+{
+}
+
+function onChannelStatus(message)
+{
+	
+}
+
+function onEventAgentNotReady(message)
+{	
+	//to get the ActionCode
+	//message.attachdata.ActionCode
+}
+
+function onEventAgentNotReadyAfterCallWork(message)
+{	
+}
+
+function onEventAgentReady(message)
+{	
+}
+
+function onEventAgentLogout(message)
+{	
+}
+
+function onEventAgentLogin(message)
+{	
+}
+
+//==================================================================
+// Events MediaVoice
+ /*
+ * message.EVENT
+ * message.Place
+ * message.AgentID
+ * message.MediaType
+ * message.ConnectionID
+ * message.ANI
+ * message.DNIS
+ * message.CallType
+ * message.Duration
+ * message.TimeStamp
+ * message.attachdata
+ * message.EntrepriseLastInteractionEvent.PreviousConnID
+ */
+//==================================================================
+
+function printAllAttachData(message)
+{
+	log.debug("called printAttachData on Event:" + message.EVENT);
+	for (var key in message.attachdata) 
+	{
+		log.debugFormat("attach key[{0}] value[{1}] ", key, message.attachdata[key]);
+	}
+}
+
+function onEventRingingInbound(message)
+{	
+	ShowCtiToolbar();
+}
+function onEventRingingInternal(message)
+{
+	
+}
+
+function onEventRingingConsult(message)
+{
+	/*
+	 	This event is received only by the second Agent (in the consult transfer scenario)
+		usually open the popup without create the activity
+	*/
+}
+function onEventRingingOutbound(message)
+{
+}
+
+//EventEstablished
+function onEventEstablishedInbound(message)
+{
+	if(message.ANI)
+	{
+		message.ANI = message.ANI.replace("tel:", "");
+		log.infoFormat("onEventEstablishedInbound ANI [{0}]", message.ANI );
+	}
+	if(message.attachdata.ACTIVITY_ID)
+	{
+		OpenRecord(iwscore.snConfig.defaultEntity, message.attachdata.ACTIVITY_ID);
+	}else
+	{
+		VoiceDefaultPopUp(message);
+	}
+}
+
+function onEventEstablishedInternal(message)
+{
+}
+function onEventEstablishedConsult(message)
+{
+	//open the ticket without create the activity
+}
+function onEventEstablishedOutbound(message)
+{
+	if(message.attachdata.ACTIVITY_ID)
+	{
+		OpenRecord(iwscore.snConfig.defaultEntity, message.attachdata.ACTIVITY_ID);
+	}else
+	{
+		VoiceDefaultPopUp(message);
+	}
+}
+
+//EventHeld
+function onEventHeldInbound(message)
+{
+}
+function onEventHeldInternal(message)
+{
+}
+function onEventHeldConsult(message)
+{
+}
+function onEventHeldOutbound(message)
+{
+}
+//EventRetrieved	
+function onEventRetrievedInbound(message)
+{
+}
+function onEventRetrievedInternal(message)
+{
+}
+function onEventRetrievedConsult(message)
+{
+}
+function onEventRetrievedOutbound(message)
+{
+}
+//EventAttachedDataChanged
+function onEventAttachedDataChangedInbound(message)
+{
+}
+function onEventAttachedDataChangedInternal(message)
+{
+}
+function onEventAttachedDataChangedConsult(message)
+{
+}
+function onEventAttachedDataChangedOutbound(message)
+{
+}
+//EventReleased
+function onEventReleasedInbound(message)
+{
+}
+function onEventReleasedInternal(message)
+{
+}
+function onEventReleasedConsult(message)
+{
+}
+function onEventReleasedOutbound(message)
+{
+}
+//EventDialing
+function onEventDialingInternal(message)
+{
+}
+function onEventDialingConsult(message)
+{
+}
+function onEventDialingOutbound(message)
+{
+	openFrameAPI.show();
+}
+
+function onEventMarkDoneInbound(message)
+{
+	log.infoFormat("onEventMarkDoneInbound ACTIVITY_ID[{0}]", message.attachdata.ACTIVITY_ID);
+	//message.attachdata.DispositionCode 
+	//message.attachdata.DispositionCodeId
+	//message.attachdata.InteractionNote
+}
+
+//==================================================================
+//Events Callback
+//==================================================================
+
+function onCallbackEventEstablished(message)
+{
+	log.info("onCallbackEventEstablished init...");
+	openFrameAPI.show();
+	//openFrameAPI.openServiceNowForm({entity:'sn_customerservice_case', query: 'CS0001008'});
+	if(message.attachdata.Caseid)
+	{
+		OpenRecord('sn_customerservice_case', message.attachdata.Caseid);
+	}
+	else
+	{
+		log.info("Attachdata Caseid not found");
+	}
+}
+//==================================================================
+//Events MediaEmail
+//==================================================================
+function onEmailEventRingingInbound(message)
+{
+	ShowCtiToolbar();
+}
+
+function onEmailEventEstablishedInbound(message)
+{
+	try
+	{	
+		log.info("onEmailEventEstablishedInbound try to set Subject");
+		message.attachdata.Subject = message.SourceMsg.eventBody.participants[0].emails[0].subject;
+		log.info("onEmailEventEstablishedInbound Subject added");
+	}catch(e)
+	{
+		log.error("Error in set Subject: " + e.message);
+	}
+	
+	if (message.attachdata.ACTIVITY_ID) {
+		OpenRecord("incident", message.attachdata.ACTIVITY_ID);
+	}
+	else {
+		EmailContactPopUpEmailAddress(message);
+	}
+}
+
+function onEmailEventReleasedInbound(message)
+{
+}
+
+function onEmailEventReplyEstablishedOutbound(message)
+{
+}
+
+function onEmailEventReplyReleased(message)
+{
+}
+
+function onEmailEventReplyCancelled(message)
+{
+}
+
+function onEmailEventSessionInfo(message)
+{
+}
+
+//==================================================================
+//Events MediaWorkbin
+//==================================================================
+
+function onWorkbinTakenOut(message)
+{
+	
+}
+
+function onWorkbinPlacedIn(message)
+{
+	
+}
+
+function onWorkbinContent(message)
+{
+	
+}
+
+//==================================================================
+//Events MediaChat
+//==================================================================
+function onChatEventRingingInbound(message)
+{
+	ShowCtiToolbar();
+}
+
+function onChatEventRingingConsult(message)
+{	
+	
+	
+}
+
+function onChatEventEstablishedInbound(message)
+{
+	if(message.attachdata["context.email"])
+		message.attachdata.EmailAddress = message.attachdata["context.email"];
+	
+	if(! message.attachdata.EmailAddress)
+		message.attachdata.EmailAddress = message.attachdata["context.customField1"];
+	
+	log.infoFormat("onChatEventEstablishedInbound email: {0}", message.attachdata.EmailAddress);
+	
+	if(message.attachdata["context.subject"])
+	{
+		message.attachdata.Subject = message.attachdata["context.subject"];
+	}
+	else
+	{
+		message.attachdata.Subject = "";
+	}
+	
+	if (message.attachdata.ACTIVITY_ID) {
+		OpenRecord("incident", message.attachdata.ACTIVITY_ID);
+	}
+	else {
+		ChatContactPopUpEmailAddress(message);
+	}
+
+}
+
+function onChatEventEstablishedConsult(message)
+{
+}
+
+function onChatEventReleasedInbound(message)
+{
+}
+function onChatEventReleasedConsult(message)
+{
+}
+
+function onChatEventTranscriptLink(message)
+{
+	//message.TranscriptPath
+}
+
+function onChatEventPartyRemovedInbound(message)
+{
+}
+
+function onChatEventPartyAddedInbound(message)
+{
+}
+
+function onChatEventPartyChangedInbound(message)
+{
+}
+
+function onChatEventMarkDoneInbound(message)
+{
+	log.infoFormat("onChatEventMarkDoneInbound ACTIVITY_ID[{0}]", message.attachdata.ACTIVITY_ID);
+	CloseIncident(message.attachdata.ACTIVITY_ID);
+}
+
+//==================================================================
+//Events SMS
+//==================================================================
+function onSMSEventRingingInbound(message)
+{
+}
+
+function onSMSEventEstablishedInbound(message)
+{
+}
+
+function onSMSEventReleasedInbound(message)
+{
+}
+
+function onSMSEventSendMessage(message)
+{
+	//message.SmsMessage
+}
+
+//==================================================================
+//Events WorkItem
+//==================================================================
+function onWorkitemEventRingingInbound(message)
+{
+}
+
+function onWorkitemEventEstablishedInbound(message)
+{
+}
+
+function onWorkitemEventReleasedInbound(message)
+{
+}
+
+//==================================================================
+//Events Facebook
+//==================================================================
+function onFacebookEventRingingInbound(message)
+{
+}
+
+function onFacebookEventEstablishedInbound(message)
+{
+}
+
+function onFacebookEventReleasedInbound(message)
+{
+}
+
+function onFacebookEventSessionInfo(message)
+{
+}
+
+//==================================================================
+//Events Twitter
+//==================================================================
+function onTwitterEventRingingInbound(message)
+{	
+}
+
+function onTwitterEventEstablishedInbound(message)
+{	
+}
+
+function onTwitterEventSessionInfo(message)
+{	
+}
+
+function onTwitterEventReleasedInbound(message)
+{	
+}
+
+function onTwitterEventReplyOutbound(message)
+{
+	alert("onTwitterEventReplyOutbound");
+}
+
+function onTwitterEventRetweetOutbound(message)
+{
+}
+
+function onTwitterEventDirectMessageOutbound(message)
+{
+}
+
+//==================================================================
+//Events UserEvent
+//==================================================================
+function onEventUserEvent(message)
+{
+}
+
+function onPreviewRecord(message)
+{	
+	log.debug("======= onPreviewRecord ==========");
+	//selectInteractionOptionByMessage(message);
+	//MakeCallEx(message.attachdata.GSW_PHONE, message.attachdata);	
+}
+
+function onChainedRecord(message)
+{
+}
+
+function onRecordRejectAcknowledge(message)
+{
+}
+
+function onRecordProcessedAcknowledge(message)
+{
+}
+
+//==================================================================
+//Events DelegateCommand
+//==================================================================
+function onDelegateCommand(message)
+{	
+	log.debug("======= onDelegateCommand ==========");
+	if(message.Parameters.Device)
+	{
+		log.debugFormat("Device Name: {0}", message.Parameters.Device.Name);
+	}
+	/*
+	//to authorize the command on IWS
+	log.debugFormat("===== Execute message: {0}", message.ID);
+	ExecuteDelegatedCommand(message.ID);
+	// OR
+	RemoveDelegatedCommand(message.ID);
+	*/
+}
+
+//==================================================================
+//Events InhibitCommand
+//==================================================================
+function onInhibitCommand(message)
+{	
+	log.debug("======= onInhibitCommand ==========");
+	if(message.Parameters.Device)
+	{
+		log.debugFormat("Device Name: {0}", message.Parameters.Device.Name);
+	}
+}
+
+//==================================================================
+//Generic Events 
+//==================================================================
+function onSwitchInteraction(message)
+{
+	log.debug("Called onSwitchInteraction: " + message);
+}
+
+function onWdeSwitchInteraction(message)
+{
+	log.debug("Called onWdeSwitchInteraction: " + message);
+}
+
+]]></script>
+        <script_name>iwsscriptPEF</script_name>
+        <sys_class_name>sys_ui_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2019-03-21 10:47:11</sys_created_on>
+        <sys_id>5a2fb086db1c3740483e78fdaa9619a8</sys_id>
+        <sys_mod_count>18</sys_mod_count>
+        <sys_name>x_sofin_cti_connec.iwsscriptPEF</sys_name>
+        <sys_package display_value="CTI-Connector-ServiceNow" source="x_sofin_cti_connec">a33a94f7dbe42b00f7a71fe96896199c</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="CTI-Connector-ServiceNow">a33a94f7dbe42b00f7a71fe96896199c</sys_scope>
+        <sys_update_name>sys_ui_script_5a2fb086db1c3740483e78fdaa9619a8</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2020-02-24 06:44:00</sys_updated_on>
+        <ui_type>0</ui_type>
+        <use_scoped_format>false</use_scoped_format>
+    </sys_ui_script>
+</record_update>
